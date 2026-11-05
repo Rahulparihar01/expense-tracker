@@ -146,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("OTP generated and stored successfully for:", maskedEmail);
 
     // Send OTP via email
-    const emailResponse = await resend.emails.send({
+    const { data: emailData, error: emailError } = await resend.emails.send({
       from: "Expense Tracker <onboarding@resend.dev>",
       to: [email],
       subject: "Password Reset Code - Expense Tracker",
@@ -200,7 +200,18 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Email sent successfully for:", maskedEmail);
+    // Record the provider's outcome. The response to the caller stays generic
+    // either way so account existence is never revealed.
+    if (emailError || !emailData?.id) {
+      console.error(
+        "EMAIL DELIVERY FAILED for:",
+        maskedEmail,
+        "reason:",
+        emailError ? (emailError as { message?: string }).message ?? JSON.stringify(emailError) : "no email id returned",
+      );
+    } else {
+      console.log("EMAIL DELIVERY ACCEPTED for:", maskedEmail, "emailId:", emailData.id);
+    }
 
     return sendResponse(new Response(
       JSON.stringify({ success: true, message: "If an account exists with this email, you will receive a reset code." }),
