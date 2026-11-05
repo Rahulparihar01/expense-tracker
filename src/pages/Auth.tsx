@@ -44,6 +44,46 @@ type NewPasswordFormData = z.infer<typeof newPasswordSchema>;
 
 type AuthView = 'login' | 'forgot-password' | 'verify-otp' | 'reset-password';
 
+type DeliveryStatus = 'pending' | 'sent' | 'failed' | 'unknown';
+
+// Polls the delivery status of the most recent reset-code email so the user
+// can see whether the code actually reached their inbox.
+function useOtpEmailDelivery(active: boolean, email: string) {
+  const [status, setStatus] = useState<DeliveryStatus>('pending');
+
+  useEffect(() => {
+    if (!active || !email) return;
+    setStatus('pending');
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('check-otp-email-status', {
+          body: { email },
+        });
+        if (cancelled) return;
+        const value = data?.status;
+        if (!error && (value === 'sent' || value === 'failed' || value === 'pending')) {
+          setStatus(value);
+        } else {
+          setStatus('unknown');
+        }
+      } catch {
+        if (!cancelled) setStatus('unknown');
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [active, email]);
+
+  return status;
+}
+
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authView, setAuthView] = useState<AuthView>('login');
@@ -52,6 +92,9 @@ export default function Auth() {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Live delivery status of the reset-code email while on the verify screen
+  const deliveryStatus = useOtpEmailDelivery(authView === 'verify-otp', resetEmail);
 
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -313,7 +356,7 @@ export default function Auth() {
         </p>
       </div>
 
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center mb-4">
         <InputOTP
           maxLength={6}
           value={otp}
@@ -329,6 +372,27 @@ export default function Auth() {
           </InputOTPGroup>
         </InputOTP>
       </div>
+
+      {deliveryStatus === 'sent' && (
+        <p className="text-sm text-center text-primary mb-4">
+          ✓ Code delivered to your inbox — check your email (and spam folder)
+        </p>
+      )}
+      {deliveryStatus === 'pending' && (
+        <p className="text-sm text-center text-muted-foreground mb-4">
+          Delivering your code…
+        </p>
+      )}
+      {deliveryStatus === 'failed' && (
+        <p className="text-sm text-center text-destructive mb-4">
+          The email could not be sent. Use "Resend code" below — if it keeps failing, contact support.
+        </p>
+      )}
+      {deliveryStatus === 'unknown' && (
+        <p className="text-sm text-center text-muted-foreground mb-4">
+          Delivery status unavailable — check your inbox; if nothing arrives, use "Resend code".
+        </p>
+      )}
 
       <Button 
         onClick={handleVerifyOTP} 

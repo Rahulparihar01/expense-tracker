@@ -124,8 +124,8 @@ const handler = async (req: Request): Promise<Response> => {
     const otp = generateOTP();
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Store OTP in database
-    const { error: insertError } = await supabaseAdmin
+    // Store OTP in database (keep the row id so delivery status can be updated on it)
+    const { data: otpRow, error: insertError } = await supabaseAdmin
       .from("password_reset_otps")
       .insert({
         email: email.toLowerCase(),
@@ -146,7 +146,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("OTP generated and stored successfully for:", maskedEmail);
 
     // Send OTP via email
-    const emailResponse = await resend.emails.send({
+    const { data: emailData, error: emailError } = await resend.emails.send({
       from: "Expense Tracker <onboarding@resend.dev>",
       to: [email],
       subject: "Password Reset Code - Expense Tracker",
@@ -200,7 +200,40 @@ const handler = async (req: Request): Promise<Response> => {
       `,
     });
 
-    console.log("Email sent successfully for:", maskedEmail);
+    // Record the provider's outcome on the OTP row so the status check endpoint
+    // (and the verify screen) can show whether the email was sent. The response
+    // to the caller stays generic either way so account existence is never revealed.
+    const deliveryUpdate = emailError || !emailData?.id
+      ? {
+          email_send_status: "failed",
+          email_send_error: emailError
+            ? (emailError as { message?: string }).message ?? JSON.stringify(emailError)
+            : "no email id returned",
+          email_sent_at: null,
+        }
+      : {
+          email_send_status: "sent",
+          email_send_error: null,
+          email_sent_at: new Date().toISOString(),
+        };
+
+    if (otpRow?.id) {
+      const { error: statusUpdateError } = await supabaseAdmin
+        .from("password_reset_otps")
+        .update(deliveryUpdate)
+        .eq("id", otpRow.id);
+      if (statusUpdateError) {
+        console.error("EMAIL DELIVERY FAILED for:", maskedEmail, "reason:",
+          deliveryUpdate.email_send_error ?? "unknown");
+      } else {
+        console.log("EMAIL DELIVERY", deliveryUpdate.email_send_status, "for:", maskedEmail);
+      }
+    } else if (emailError) {
+      console.error("EMAIL DELIVERY FAILED for:", maskedEmail, "reason:",
+        deliveryUpdate.email_send_error ?? "unknown");
+    } else {
+      console.log("EMAIL DELIVERY", deliveryUpdate.email_send_status, "for:", maskedEmail);
+    }
 
     return sendResponse(new Response(
       JSON.stringify({ success: true, message: "If an account exists with this email, you will receive a reset code." }),
