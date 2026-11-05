@@ -44,6 +44,46 @@ type NewPasswordFormData = z.infer<typeof newPasswordSchema>;
 
 type AuthView = 'login' | 'forgot-password' | 'verify-otp' | 'reset-password';
 
+type DeliveryStatus = 'pending' | 'sent' | 'failed' | 'unknown';
+
+// Polls the delivery status of the most recent reset-code email so the user
+// can see whether the code actually reached their inbox.
+function useOtpEmailDelivery(active: boolean, email: string) {
+  const [status, setStatus] = useState<DeliveryStatus>('pending');
+
+  useEffect(() => {
+    if (!active || !email) return;
+    setStatus('pending');
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('check-otp-email-status', {
+          body: { email },
+        });
+        if (cancelled) return;
+        const value = data?.status;
+        if (!error && (value === 'sent' || value === 'failed' || value === 'pending')) {
+          setStatus(value);
+        } else {
+          setStatus('unknown');
+        }
+      } catch {
+        if (!cancelled) setStatus('unknown');
+      }
+    };
+
+    check();
+    const interval = setInterval(check, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [active, email]);
+
+  return status;
+}
+
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [authView, setAuthView] = useState<AuthView>('login');
