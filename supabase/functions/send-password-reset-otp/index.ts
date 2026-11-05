@@ -133,7 +133,9 @@ const handler = async (req: Request): Promise<Response> => {
         expires_at: expiresAt.toISOString(),
         used: false,
         attempts: 0
-      });
+      })
+      .select("id")
+      .single();
 
     if (insertError) {
       console.error("Error storing OTP");
