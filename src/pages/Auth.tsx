@@ -93,6 +93,9 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Live delivery status of the reset-code email while on the verify screen
+  const deliveryStatus = useOtpEmailDelivery(authView === 'verify-otp', resetEmail);
+
   const loginForm = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -353,7 +356,7 @@ export default function Auth() {
         </p>
       </div>
 
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center mb-2">
         <InputOTP
           maxLength={6}
           value={otp}
@@ -369,6 +372,29 @@ export default function Auth() {
           </InputOTPGroup>
         </InputOTP>
       </div>
+
+      {deliveryStatus === 'sent' && (
+        <p className="text-sm text-center text-primary mb-4">
+          ✓ Code delivered to your inbox — check your email (and spam folder)
+        </p>
+      )}
+      {deliveryStatus === 'pending' && (
+        <p className="text-sm text-center text-muted-foreground mb-4">
+          Delivering your code…
+        </p>
+      )}
+      {deliveryStatus === 'failed' && (
+        <p className="text-sm text-center text-destructive mb-4">
+          The email could not be sent. Use "Resend code" below — if it keeps failing, contact support.
+        </p>
+      )}
+      {deliveryStatus === 'unknown' && (
+        <p className="text-sm text-center text-muted-foreground mb-4">
+          Delivery status unavailable — check your inbox; if nothing arrives, use "Resend code".
+        </p>
+      )}
+
+      <div className="mb-4" />
 
       <Button 
         onClick={handleVerifyOTP} 
