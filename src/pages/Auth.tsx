@@ -356,7 +356,7 @@ export default function Auth() {
         </p>
       </div>
 
-      <div className="flex justify-center mb-2">
+      <div className="flex justify-center mb-4">
         <InputOTP
           maxLength={6}
           value={otp}
