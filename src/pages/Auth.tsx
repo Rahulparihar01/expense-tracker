@@ -394,8 +394,6 @@ export default function Auth() {
         </p>
       )}
 
-      <div className="mb-4" />
-
       <Button 
         onClick={handleVerifyOTP} 
         className="w-full" 
