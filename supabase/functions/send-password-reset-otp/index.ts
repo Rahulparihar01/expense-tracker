@@ -225,10 +225,12 @@ const handler = async (req: Request): Promise<Response> => {
         .update(deliveryUpdate)
         .eq("id", otpRow.id);
       if (statusUpdateError) {
-        console.error("EMAIL DELIVERY FAILED for:", maskedEmail, "reason:",
-          deliveryUpdate.email_send_error ?? "unknown");
+        console.error("Could not record delivery status:", statusUpdateError.message);
+      }
+      if (deliveryUpdate.email_send_status === "failed") {
+        console.error("EMAIL DELIVERY FAILED for:", maskedEmail, "reason:", deliveryUpdate.email_send_error);
       } else {
-        console.log("EMAIL DELIVERY", deliveryUpdate.email_send_status, "for:", maskedEmail);
+        console.log("EMAIL DELIVERY sent for:", maskedEmail);
       }
     } else if (emailError) {
       console.error("EMAIL DELIVERY FAILED for:", maskedEmail, "reason:",
