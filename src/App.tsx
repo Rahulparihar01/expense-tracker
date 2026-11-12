@@ -12,6 +12,7 @@ import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import OAuthConsent from "./pages/OAuthConsent";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
       {/* Legacy alias */}
       <Route path="/auth" element={<Navigate to="/login" replace />} />
