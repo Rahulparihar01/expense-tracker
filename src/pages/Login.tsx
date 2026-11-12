@@ -25,14 +25,6 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 const forgotSchema = z.object({ email: z.string().email('Please enter a valid email') });
-const newPasswordSchema = z.object({
-  password: passwordSchema,
-  confirmPassword: z.string(),
-}).refine((d) => d.password === d.confirmPassword, {
-  message: "Passwords don't match",
-  path: ['confirmPassword'],
-});
-
 type AuthView = 'login' | 'forgot' | 'verify-otp';
 
 export default function Login() {
