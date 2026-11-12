@@ -11,6 +11,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { PASSWORD_RESET_CHALLENGE_KEY } from '@/lib/password-reset';
 
 const passwordSchema = z.string()
   .min(8, 'Password must be at least 8 characters')
@@ -32,7 +33,7 @@ const newPasswordSchema = z.object({
   path: ['confirmPassword'],
 });
 
-type AuthView = 'login' | 'forgot' | 'verify-otp' | 'reset';
+type AuthView = 'login' | 'forgot' | 'verify-otp';
 
 export default function Login() {
   const [view, setView] = useState<AuthView>('login');
@@ -64,11 +65,6 @@ export default function Login() {
     resolver: zodResolver(forgotSchema),
     defaultValues: { email: '' },
   });
-  const newPasswordForm = useForm<z.infer<typeof newPasswordSchema>>({
-    resolver: zodResolver(newPasswordSchema),
-    defaultValues: { password: '', confirmPassword: '' },
-  });
-
   const onLogin = async (data: z.infer<typeof loginSchema>) => {
     setLoading(true);
     try {
@@ -126,29 +122,8 @@ export default function Login() {
         toast({ title: 'Invalid code', description: error?.message || res?.error, variant: 'destructive' });
         return;
       }
-      setView('reset');
-      toast({ title: 'Code verified!', description: 'Set your new password.' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const onResetPassword = async (data: z.infer<typeof newPasswordSchema>) => {
-    setLoading(true);
-    try {
-      const { data: res, error } = await supabase.functions.invoke('verify-otp-reset-password', {
-        body: { email: resetEmail, otp, newPassword: data.password, action: 'reset' },
-      });
-      if (error || res?.error) {
-        toast({ title: 'Error', description: error?.message || res?.error, variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Password updated!', description: 'You can now login with your new password.' });
-      setOtp('');
-      setResetEmail('');
-      forgotForm.reset();
-      newPasswordForm.reset();
-      setView('login');
+      sessionStorage.setItem(PASSWORD_RESET_CHALLENGE_KEY, JSON.stringify({ email: resetEmail, otp }));
+      navigate('/reset-password');
     } finally {
       setLoading(false);
     }
@@ -158,7 +133,6 @@ export default function Login() {
     setOtp('');
     setResetEmail('');
     forgotForm.reset();
-    newPasswordForm.reset();
     setView('login');
   };
 
@@ -374,65 +348,6 @@ export default function Login() {
             </>
           )}
 
-          {view === 'reset' && (
-            <>
-              <button
-                onClick={backToLogin}
-                className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6"
-              >
-                <ArrowLeft className="h-4 w-4" /> Back to sign in
-              </button>
-              <div className="mb-8">
-                <h1 className="text-3xl font-bold tracking-tight">Set new password</h1>
-                <p className="text-muted-foreground mt-2">Create a new password for your account.</p>
-              </div>
-              <Form {...newPasswordForm}>
-                <form onSubmit={newPasswordForm.handleSubmit(onResetPassword)} className="space-y-4">
-                  <FormField
-                    control={newPasswordForm.control}
-                    name="password"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>New Password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="password" placeholder="••••••••" className="pl-10 h-11" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={newPasswordForm.control}
-                    name="confirmPassword"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Confirm Password</FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                            <Input type="password" placeholder="••••••••" className="pl-10 h-11" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" className="w-full h-11" disabled={loading}>
-                    {loading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Updating...
-                      </>
-                    ) : (
-                      'Update Password'
-                    )}
-                  </Button>
-                </form>
-              </Form>
-            </>
-          )}
         </div>
       </div>
     </div>
